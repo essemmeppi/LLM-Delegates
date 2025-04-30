@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synthetic Advocates</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .message {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            max-width: 80%;
+        }
+        .message.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .delegate-a {
+            background-color: #E3F2FD;
+            margin-right: auto;
+            border-top-right-radius: 1.5rem;
+            border-bottom-right-radius: 1.5rem;
+            border-top-left-radius: 0.5rem;
+            border-bottom-left-radius: 0.5rem;
+        }
+        .delegate-b {
+            background-color: #F3E5F5;
+            margin-left: auto;
+            border-top-left-radius: 1.5rem;
+            border-bottom-left-radius: 1.5rem;
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+        .judge {
+            background-color: #FFF3E0;
+            margin: 1rem auto;
+            max-width: 90%;
+            border-radius: 0.5rem;
+            border: 1px solid #FFE0B2;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        .turn-indicator {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin: 1rem 0;
+            font-style: italic;
+        }
+        .delegate-input {
+            background-color: #F5F5F5;
+            border: 1px solid #E0E0E0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        .delegate-input-a {
+            border-left: 4px solid #2196F3;
+        }
+        .delegate-input-b {
+            border-left: 4px solid #9C27B0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">Synthetic Advocates</h1>
+
+        <p class="text-gray-700 mb-6 max-w-2xl mx-auto">
+            <strong>Synthetic Advocates</strong> is a minimal sandbox for simulating negotiation between two LLM-powered delegates. Provide a shared context and define the initial stance of each delegate — then let the agents take it from there.
+        </p>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <form id="negotiationForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Negotiation Context</label>
+                    <textarea name="shared_context"
+                        class="mt-1 block w-full p-3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400 caret-gray-600"
+                        rows="3" placeholder="Describe the situation, key issues, constraints, and any relevant background information that both parties need to understand..."></textarea>
+                </div>
+        
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="delegate-input delegate-input-a">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Delegate A Objectives & Constraints</label>
+                        <textarea name="cause_a"
+                            class="mt-1 block w-full p-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-400 caret-blue-600"
+                            rows="4" placeholder="Define this delegate's key interests, priorities, non-negotiables, and what success looks like for them..." required></textarea>
+                    </div>
+                    <div class="delegate-input delegate-input-b">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Delegate B Objectives & Constraints</label>
+                        <textarea name="cause_b"
+                            class="mt-1 block w-full p-3 rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-900 placeholder-gray-400 caret-purple-600"
+                            rows="4" placeholder="Define this delegate's key interests, priorities, non-negotiables, and what success looks like for them..." required></textarea>
+                    </div>
+                </div>
+        
+                <button type="submit"
+                    class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    Start Dialogue
+                </button>
+            </form>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Negotiation in progress...</p>
+        </div>
+
+        <div id="negotiationResult" class="bg-white rounded-lg shadow-lg p-6 hidden">
+            <div id="conversation" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <script>
+        function formatMessage(message) {
+            // Convert plain text line breaks to HTML breaks
+            let formatted = message.replace(/\n/g, '<br>');
+            
+            // Look for bullet point patterns and format them
+            formatted = formatted.replace(/- (.*?)(?=<br>|$)/g, '• $1');
+            
+            return formatted;
+        }
+        
+        document.getElementById('negotiationForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); // Prevent default form submission
+            
+            const form = this;
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('negotiationResult');
+            const conversation = document.getElementById('conversation');
+            
+            // Get form values
+            const shared_context = form.elements['shared_context'].value;
+            const cause_a = form.elements['cause_a'].value;
+            const cause_b = form.elements['cause_b'].value;
+            
+            // Show loading and clear previous conversation
+            loading.style.display = 'block';
+            result.classList.add('hidden');
+            conversation.innerHTML = '';
+            
+            try {
+                const response = await fetch('/negotiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        shared_context: shared_context,
+                        cause_a: cause_a,
+                        cause_b: cause_b
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+
+                if (!response.body) {
+                    throw new Error("Response has no body");
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let currentTurn = 0;
+
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, {stream: true});
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            if (data.type === 'message') {
+                                // Add turn indicator if it's a new turn
+                                if (data.data.turn !== currentTurn) {
+                                    currentTurn = data.data.turn;
+                                    const turnDiv = document.createElement('div');
+                                    turnDiv.className = 'turn-indicator';
+                                    turnDiv.textContent = `Turn ${currentTurn}`;
+                                    conversation.appendChild(turnDiv);
+                                }
+
+                                const messageDiv = document.createElement('div');
+                                messageDiv.className = `message ${data.data.sender.toLowerCase().replace(' ', '-')}`;
+                                
+                                const sender = document.createElement('div');
+                                sender.className = 'font-semibold mb-1';
+                                sender.textContent = data.data.sender;
+                                
+                                const content = document.createElement('div');
+                                content.innerHTML = formatMessage(data.data.message);
+                                
+                                messageDiv.appendChild(sender);
+                                messageDiv.appendChild(content);
+                                conversation.appendChild(messageDiv);
+
+                                // Trigger animation
+                                setTimeout(() => messageDiv.classList.add('visible'), 50);
+                                
+                                // Show the result container on first message
+                                if (result.classList.contains('hidden')) {
+                                    result.classList.remove('hidden');
+                                }
+                            } else if (data.type === 'end') {
+                                loading.style.display = 'none';
+                            } else if (data.error) {
+                                console.error('Server error:', data.error);
+                                loading.style.display = 'none';
+                                alert('An error occurred: ' + data.error);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('An error occurred:', error);
+                loading.style.display = 'none';
+                alert('An error occurred: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
