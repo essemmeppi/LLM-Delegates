@@ -8,7 +8,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Initialize the negotiation system with your OpenAI API key
-negotiation_system = NegotiationSystem(api_key=os.environ.get("OPENAI_API_KEY"))
+negotiation_system = NegotiationSystem(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.route('/')
 def index():

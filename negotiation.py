@@ -5,7 +5,7 @@ import os
 
 class NegotiationSystem:
     def __init__(self, api_key: str):
-        self.client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.max_turns = 20
 
     def _get_delegate_template(self) -> str:
