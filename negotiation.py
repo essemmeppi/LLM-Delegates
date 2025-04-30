@@ -1,10 +1,11 @@
 import openai
 import json
 from typing import List, Dict, Any, Generator
+import os
 
 class NegotiationSystem:
     def __init__(self, api_key: str):
-        self.client = openai.OpenAI(api_key="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")
+        self.client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.max_turns = 20
 
     def _get_delegate_template(self) -> str:
